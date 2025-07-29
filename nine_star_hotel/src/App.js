@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './App.css';
 import Login from './components/Login/Login';
 
@@ -784,113 +784,160 @@ const GuestManagement = ({ guests, setGuests, rooms, setRooms, bookingHistory, s
 };
 
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [adminUser, setAdminUser] = useState(null);
+  // Initialize authentication state from localStorage
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    try {
+      const isAuth = localStorage.getItem('isAuthenticated');
+      const userData = localStorage.getItem('userData');
+
+      // Both authentication flag and user data must exist
+      if (isAuth === 'true' && userData && userData !== 'null') {
+        try {
+          const parsedUserData = JSON.parse(userData);
+          if (parsedUserData && parsedUserData.email) {
+            return true;
+          }
+        } catch (parseError) {
+          localStorage.clear();
+          return false;
+        }
+      }
+
+      return false;
+    } catch (error) {
+      return false;
+    }
+  });
+
+  const [adminUser, setAdminUser] = useState(() => {
+    try {
+      const isAuth = localStorage.getItem('isAuthenticated');
+      if (isAuth !== 'true') {
+        return null;
+      }
+
+      const userData = localStorage.getItem('userData');
+      if (userData && userData !== 'null' && userData !== 'undefined') {
+        try {
+          const parsed = JSON.parse(userData);
+          if (parsed && parsed.email) {
+            return parsed;
+          }
+        } catch (parseError) {
+          localStorage.clear();
+          return null;
+        }
+      }
+
+      return null;
+    } catch (error) {
+      localStorage.clear();
+      return null;
+    }
+  });
+
   const [activeSection, setActiveSection] = useState('dashboard');
 
-  // Global room state management
-  const [rooms, setRooms] = useState([
-    // Sample data - AC Rooms
-    { id: 1, number: '101', type: 'AC', status: 'Available', price: 2500 },
-    { id: 2, number: '102', type: 'AC', status: 'Booked', price: 2500, guest: 'John Doe', checkinDate: '2024-01-15', checkoutDate: '2024-01-18' },
-    { id: 3, number: '103', type: 'AC', status: 'Cleaning Pending', price: 2500 },
-    { id: 4, number: '201', type: 'AC', status: 'Available', price: 2500 },
-    { id: 5, number: '202', type: 'AC', status: 'Booked', price: 2500, guest: 'Jane Smith', checkinDate: '2024-01-16', checkoutDate: '2024-01-20' },
+  // Session monitoring and persistence
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      // Check if authentication-related keys were modified
+      if (['isAuthenticated', 'userData'].includes(e.key)) {
+        const isAuth = localStorage.getItem('isAuthenticated') === 'true';
+        const userData = localStorage.getItem('userData');
 
-    // Sample data - Non-AC Rooms
-    { id: 6, number: '301', type: 'Non-AC', status: 'Available', price: 1500 },
-    { id: 7, number: '302', type: 'Non-AC', status: 'Booked', price: 1500, guest: 'Bob Johnson', checkinDate: '2024-01-14', checkoutDate: '2024-01-17' },
-    { id: 8, number: '303', type: 'Non-AC', status: 'Available', price: 1500 },
-    { id: 9, number: '401', type: 'Non-AC', status: 'Cleaning Pending', price: 1500 },
-    { id: 10, number: '402', type: 'Non-AC', status: 'Available', price: 1500 }
-  ]);
+        if (!isAuth || !userData || userData === 'null') {
+          setIsAuthenticated(false);
+          setAdminUser(null);
+        }
+      }
+    };
 
-  // Global guests state
-  const [guests, setGuests] = useState([
-    {
-      id: 1,
-      name: 'John Doe',
-      mobile: '9876543210',
-      roomNumber: '102',
-      checkinDate: '2024-01-15',
-      checkoutDate: '2024-01-18',
-      idProof: 'Aadhaar Card',
-      guestCount: 2,
-      customPrice: null,
-      roomPrice: 2500,
-      nights: 3,
-      totalAmount: 7500
-    },
-    {
-      id: 2,
-      name: 'Jane Smith',
-      mobile: '9876543211',
-      roomNumber: '202',
-      checkinDate: '2024-01-16',
-      checkoutDate: '2024-01-20',
-      idProof: 'Passport',
-      guestCount: 1,
-      customPrice: null,
-      roomPrice: 2500,
-      nights: 4,
-      totalAmount: 10000
-    },
-    {
-      id: 3,
-      name: 'Bob Johnson',
-      mobile: '9876543212',
-      roomNumber: '302',
-      checkinDate: '2024-01-14',
-      checkoutDate: '2024-01-17',
-      idProof: 'Driving License',
-      guestCount: 3,
-      customPrice: 3000,
-      roomPrice: 3000,
-      nights: 3,
-      totalAmount: 9000
-    }
-  ]);
+    const validateSession = () => {
+      try {
+        const isAuth = localStorage.getItem('isAuthenticated');
+        const userData = localStorage.getItem('userData');
 
-  // Booking history state for completed bookings
-  const [bookingHistory, setBookingHistory] = useState([
-    {
-      id: 101,
-      name: 'Alice Cooper',
-      mobile: '9876543213',
-      roomNumber: '201',
-      checkinDate: '2024-01-10',
-      checkoutDate: '2024-01-13',
-      idProof: 'Passport',
-      guestCount: 2,
-      customPrice: null,
-      roomPrice: 2500,
-      nights: 3,
-      totalAmount: 7500,
-      checkoutTimestamp: '2024-01-13T11:00:00Z'
-    },
-    {
-      id: 102,
-      name: 'David Wilson',
-      mobile: '9876543214',
-      roomNumber: '301',
-      checkinDate: '2024-01-08',
-      checkoutDate: '2024-01-12',
-      idProof: 'Driving License',
-      guestCount: 1,
-      customPrice: 2800,
-      roomPrice: 2800,
-      nights: 4,
-      totalAmount: 11200,
-      checkoutTimestamp: '2024-01-12T10:30:00Z'
-    }
-  ]);
+        // If currently authenticated, verify session is still valid
+        if (isAuthenticated) {
+          if (isAuth !== 'true' || !userData || userData === 'null') {
+            setIsAuthenticated(false);
+            setAdminUser(null);
+            return;
+          }
+
+          // Validate user data integrity
+          try {
+            const parsedUserData = JSON.parse(userData);
+            if (!parsedUserData || !parsedUserData.email) {
+              throw new Error('Invalid user data structure');
+            }
+          } catch (parseError) {
+            localStorage.clear();
+            setIsAuthenticated(false);
+            setAdminUser(null);
+            return;
+          }
+        }
+
+        // If not authenticated but localStorage has valid data, restore session
+        if (!isAuthenticated && isAuth === 'true' && userData && userData !== 'null') {
+          try {
+            const parsedUserData = JSON.parse(userData);
+            if (parsedUserData && parsedUserData.email) {
+              setIsAuthenticated(true);
+              setAdminUser(parsedUserData);
+            }
+          } catch (parseError) {
+            localStorage.clear();
+          }
+        }
+      } catch (error) {
+        localStorage.clear();
+        setIsAuthenticated(false);
+        setAdminUser(null);
+      }
+    };
+
+    // Listen for storage events from other tabs
+    window.addEventListener('storage', handleStorageChange);
+
+    // Validate session periodically (every 60 seconds)
+    const sessionInterval = setInterval(validateSession, 60000);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(sessionInterval);
+    };
+  }, [isAuthenticated]);
+
+  // Global room state management - Dynamic data from API
+  const [rooms, setRooms] = useState([]);
+
+  // Global guests state - Dynamic data from API
+  const [guests, setGuests] = useState([]);
+
+  // Booking history state for completed bookings - Dynamic data from API
+  const [bookingHistory, setBookingHistory] = useState([]);
 
   const handleLoginSuccess = (userData) => {
+    // Update state immediately
     setAdminUser(userData);
     setIsAuthenticated(true);
   };
 
   const handleLogout = () => {
+    try {
+      // Clear authentication-related localStorage items
+      localStorage.removeItem('userData');
+      localStorage.removeItem('isAuthenticated');
+      localStorage.removeItem('loginTimestamp');
+    } catch (error) {
+      // Force clear if individual removal fails
+      localStorage.clear();
+    }
+
+    // Clear state immediately
     setAdminUser(null);
     setIsAuthenticated(false);
   };
